@@ -10,7 +10,6 @@ static void xor(unsigned char *target, const unsigned char *src, int len)
     }
 }
 
-// Rotation
 static void rotate_word(unsigned char *w)
 {
     unsigned char tmp;
@@ -91,7 +90,6 @@ static unsigned char inv_sbox[16][16] = {
       0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d },
 };
 
-// Substitute
 static void substitute_word(unsigned char *w)
 {
     int i = 0;
@@ -104,8 +102,31 @@ static void compute_key_schedule(const unsigned char *key,
                                  int key_length,
                                  unsigned char w[][4])
 {
+    // AES 128-bit key schedule computation
+    //
+    // Initial Key Input     Key Schedule
+    // [ 4 bytes ] --------> [ 4 bytes ] ------------------+   bytes 1-4
+    //                                                     |
+    // [ 4 bytes ] --------> [ 4 bytes ] --------------+   |   bytes 5-8
+    //                                                 |   |
+    // [ 4 bytes ] --------> [ 4 bytes ] ----------+   |   |   bytes 9-12
+    //                                             |   |   V
+    // [ 4 bytes ] --------> [ 4 bytes ] ----------|---|->(+)  bytes 13-16
+    //                                             |   |   |
+    //                            +----------------|---|---+
+    //                            V                |   V
+    //                       [ 4 bytes ] rot sub --|->(+)      bytes 17-20
+    //                                             |   |
+    //                            +----------------|---+
+    //                            V                V
+    //                       [ 4 bytes ] -------->(+)          bytes 21-24
+    //                                             |
+    //                            +----------------+
+    //                            V
+    //                       [ 4 bytes ] rot sub               bytes 25-28
+    //                            :                                 :
     int i;
-    int key_words = key_length >> 2;
+    int key_words = key_length >> 2; // AES-128: 4, AES-256: 8
     unsigned char rcon = 0x01;
 
     // First, copy the key directly into the key schedule
@@ -134,23 +155,22 @@ static void compute_key_schedule(const unsigned char *key,
 static void add_round_key(unsigned char state[][4],
                           unsigned char w[][4])
 {
-    int c, r;
-    //
     //   state           w
     //   0 4 8 c         0 1 2 3
     //   1 5 9 d   XOR   4 5 6 7
     //   2 6 a e         8 9 a b
     //   3 7 b f         c d e f
-    //
+    int c, r;
     for (c = 0; c < 4; c++) {
         for (r = 0; r < 4; r++) {
-            state[r][c] = state[r][c] ^ w[c][r]; // ??? w[c,r] is correct order?
+            state[r][c] = state[r][c] ^ w[c][r];
         }
     }
 }
 
 static void substitute_bytes(unsigned char state[][4])
 {
+    // s_ij <- sbox(s_ij)
     int c, r;
     for (c = 0; c < 4; c++) {
         for (r = 0; r < 4; r++) {
@@ -162,6 +182,7 @@ static void substitute_bytes(unsigned char state[][4])
 
 static void inv_substitute_bytes(unsigned char state[][4])
 {
+    // s_ij <- inv_sbox(s_ij)
     int c, r;
     for (c = 0; c < 4; c++) {
         for (r = 0; r < 4; r++) {
@@ -173,6 +194,11 @@ static void inv_substitute_bytes(unsigned char state[][4])
 
 static void shift_rows(unsigned char state[][4])
 {
+    //   state
+    //  |0 4 8 c        |0 4 8 c
+    //  |1 5 9 d   ==>   d|1 5 9
+    //  |2 6 a e         a e|2 6
+    //  |3 7 b f         7 b f|3
     int tmp;
     tmp = state[1][0];
     state[1][0] = state[1][1];
@@ -196,6 +222,11 @@ static void shift_rows(unsigned char state[][4])
 
 static void inv_shift_rows(unsigned char state[][4])
 {
+    //   state
+    //  |0 4 8 c        |0 4 8 c
+    //   d|1 5 9   ==>  |1 5 9 d
+    //   a e|2 6        |2 6 a e
+    //   7 b f|3        |3 7 b f
     int tmp;
     tmp = state[1][2];
     state[1][2] = state[1][1];
@@ -220,11 +251,13 @@ static void inv_shift_rows(unsigned char state[][4])
 // "left-shift and XOR with 0x1b on overflow" operation
 unsigned char xtime(unsigned char x)
 {
+    // multiply(<<) and subtract(^) modulo x^8 + x^4 + x^3 + x + 1
     return (x << 1) ^ ((x & 0x80) ? 0x1b : 0x00);
 }
 
 unsigned char dot(unsigned char x, unsigned char y)
 {
+    // multiply x and y over GF(2^8) with modulo x^8 + x^4 + x^3 + x + 1
     unsigned char mask;
     unsigned char product = 0;
 
@@ -239,6 +272,20 @@ unsigned char dot(unsigned char x, unsigned char y)
 
 static void mix_columns(unsigned char s[][4])
 {
+    //   | 0 | 4 | 8 | c |           | 0'| 4'| 8'| c'|
+    //   | 1 | 5 | 9 | d |           | 1'| 5'| 9'| d'|
+    //   | 2 | 6 | a | e |           | 2'| 6'| a'| e'|
+    //   | 3 | 7 | b | f |           | 3'| 7'| b'| f'|
+    //     |   |   |   |               ^   ^   ^   ^
+    //     +---|---|---|---------------+   |   |   |
+    //         +---|---|-------------------+   |   |
+    //             +---|-----------------------+   |
+    //                 +---------------------------+
+    //
+    //   [ d_0 ]   [ 02 03 01 01 ] [ b_0 ]
+    //   [ d_1 ] = [ 01 02 03 01 ] [ b_1 ]
+    //   [ d_2 ]   [ 01 01 02 03 ] [ b_2 ]
+    //   [ d_3 ]   [ 03 01 01 02 ] [ b_3 ]
     int c;
     unsigned char t[4];
 
@@ -260,6 +307,10 @@ static void mix_columns(unsigned char s[][4])
 
 static void inv_mix_columns(unsigned char s[][4])
 {
+    //   [ b_0 ]   [ 0e 0b 0d 09 ] [ d_0 ]
+    //   [ b_1 ] = [ 09 0e 0b 0d ] [ d_1 ]
+    //   [ b_2 ]   [ 0d 09 0e 0b ] [ d_2 ]
+    //   [ b_3 ]   [ 0b 0d 09 0e ] [ d_3 ]
     int c;
     unsigned char t[4];
 
