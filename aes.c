@@ -422,7 +422,7 @@ static void aes_encrypt(const unsigned char *input,
         memcpy(input_block, input, AES_BLOCK_SIZE);
         xor(input_block, iv, AES_BLOCK_SIZE); // implement CBC
         aes_block_encrypt(input_block, output, key, key_length);
-        memcpy((void*)iv, (void*)input, AES_BLOCK_SIZE); // CBC
+        memcpy((void *)iv, (void *)input, AES_BLOCK_SIZE); // CBC
         input += AES_BLOCK_SIZE;
         output += AES_BLOCK_SIZE;
         input_len -= AES_BLOCK_SIZE;
@@ -439,7 +439,7 @@ static void aes_decrypt(const unsigned char *input,
     while (input_len >= AES_BLOCK_SIZE) {
         aes_block_decrypt(input, output, key, key_length);
         xor(output, iv, AES_BLOCK_SIZE);
-        memcpy((void*)iv, (void*)output, AES_BLOCK_SIZE); // CBC
+        memcpy((void *)iv, (void *)output, AES_BLOCK_SIZE); // CBC
         input += AES_BLOCK_SIZE;
         output += AES_BLOCK_SIZE;
         input_len -= AES_BLOCK_SIZE;
