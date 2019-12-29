@@ -8,4 +8,4 @@ aes.o: aes.c aes.h
 	gcc -c $<
 
 main: main.c aes.o hex.o
-	gcc main.c aes.o hex.o -o $@
+	gcc $^ -o $@
