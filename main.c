@@ -32,7 +32,7 @@ int aes128enc() {
     printf("KEY:       "); show_hex(key, 16);
     aes_128_encrypt(input, input_len, ciphertext, iv, key);
     printf("ENCRYPTED: "); show_hex(ciphertext, input_len);
-    if (strncmp((const char *)ciphertext, (const char *)expected, 16) == 0) {
+    if (memcmp(ciphertext, expected, 16) == 0) {
         // show_hex(plaintext, 16);
         printf("aes128enc ... OK\n");
         return 1;
@@ -65,7 +65,7 @@ int aes128dec() {
     printf("KEY:       "); show_hex(key, 16);
     aes_128_decrypt(input, input_len, plaintext, iv, key);
     printf("ENCRYPTED: "); show_hex(plaintext, input_len);
-    if (strncmp((const char *)plaintext, (const char *)expected, 16) == 0) {
+    if (memcmp(plaintext, expected, 16) == 0) {
         // show_hex(plaintext, 16);
         printf("aes128dec ... OK\n");
         return 1;
@@ -101,7 +101,7 @@ int aes256enc() {
     printf("KEY:       "); show_hex(key, 32);
     aes_256_encrypt(input, input_len, ciphertext, iv, key);
     printf("ENCRYPTED: "); show_hex(ciphertext, input_len);
-    if (strncmp((const char *)ciphertext, (const char *)expected, 16) == 0) {
+    if (memcmp(ciphertext, expected, 16) == 0) {
         // show_hex(plaintext, 16);
         printf("aes256enc ... OK\n");
         return 1;
@@ -136,7 +136,7 @@ int aes256dec() {
     printf("KEY:       "); show_hex(key, 32);
     aes_256_decrypt(input, input_len, plaintext, iv, key);
     printf("ENCRYPTED: "); show_hex(plaintext, input_len);
-    if (strncmp((const char *)plaintext, (const char *)expected, 16) == 0) {
+    if (memcmp(plaintext, expected, 16) == 0) {
         // show_hex(plaintext, 16);
         printf("aes256dec ... OK\n");
         return 1;
