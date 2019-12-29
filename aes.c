@@ -255,12 +255,13 @@ unsigned char xtime(unsigned char x)
     return (x << 1) ^ ((x & 0x80) ? 0x1b : 0x00);
 }
 
+// multiply x and y over GF(2^8) with modulo x^8 + x^4 + x^3 + x + 1
 unsigned char dot(unsigned char x, unsigned char y)
 {
-    // multiply x and y over GF(2^8) with modulo x^8 + x^4 + x^3 + x + 1
     unsigned char mask;
     unsigned char product = 0;
 
+    // Double-and-add multiplication
     for (mask = 0x01; mask; mask <<= 1) {
         if (y & mask) {
             product ^= x;
@@ -416,13 +417,26 @@ static void aes_encrypt(const unsigned char *input,
                         const unsigned char *key,
                         int key_length)
 {
+    //
+    //     [Plaintext]      [Plaintext]
+    //          |                |
+    //          V                V
+    // [IV]--->(+)    +-------->(+)
+    //          |     |          |
+    //          V     |          V
+    // [key]-->Enc    | [key]-->Enc
+    //          |     |          |     :
+    //          +-----+          +-----+
+    //          V                V
+    //     [Ciphertext]     [Ciphertext]
+    //
     unsigned char input_block[AES_BLOCK_SIZE];
 
     while (input_len >= AES_BLOCK_SIZE) {
         memcpy(input_block, input, AES_BLOCK_SIZE);
         xor(input_block, iv, AES_BLOCK_SIZE); // implement CBC
         aes_block_encrypt(input_block, output, key, key_length);
-        memcpy((void *)iv, (void *)input, AES_BLOCK_SIZE); // CBC
+        memcpy((void *)iv, (void *)output, AES_BLOCK_SIZE); // CBC
         input += AES_BLOCK_SIZE;
         output += AES_BLOCK_SIZE;
         input_len -= AES_BLOCK_SIZE;
@@ -436,10 +450,23 @@ static void aes_decrypt(const unsigned char *input,
                         const unsigned char *key,
                         int key_length)
 {
+    //
+    //     [Ciphertext]     [Ciphertext]
+    //          |                |
+    //          +----+           +-----+
+    //          V    |           V     :
+    // [key]-->Dec   |  [key]-->Dec
+    //          |    |           |
+    //          V    |           V
+    // [IV]--->(+)   +--------->(+)
+    //          |                |
+    //          V                V
+    //     [Plaintext]      [Plaintext]
+    //
     while (input_len >= AES_BLOCK_SIZE) {
         aes_block_decrypt(input, output, key, key_length);
         xor(output, iv, AES_BLOCK_SIZE);
-        memcpy((void *)iv, (void *)output, AES_BLOCK_SIZE); // CBC
+        memcpy((void *)iv, (void *)input, AES_BLOCK_SIZE); // CBC
         input += AES_BLOCK_SIZE;
         output += AES_BLOCK_SIZE;
         input_len -= AES_BLOCK_SIZE;
@@ -487,6 +514,10 @@ void aes_256_decrypt(const unsigned char *ciphertext,
 }
 
 
+// -------------------------------------------------------------------
+// AES-GCM
+// https://csrc.nist.gov/publications/detail/sp/800-38d/final
+
 // Multiply X by Y in a GF(128) field and return the result in Z.
 static void gf_multiply(const unsigned char *X,
                         const unsigned char *Y,
@@ -500,8 +531,9 @@ static void gf_multiply(const unsigned char *X,
 
     memset(Z, '\0', AES_BLOCK_SIZE);
     memset(R, '\0', AES_BLOCK_SIZE);
-    R[0] = 0xE1; // 0b11100001 == x^128 + x^7 + x^2 + x + 1
+    R[0] = 0xE1; // 0b11100001 == (x^128) + x^7 + x^2 + x + 1
     memcpy(V, X, AES_BLOCK_SIZE);
+    // Double-and-add multiplication
     for (i = 0; i < 16; i++) {
         for (mask = 0x80; mask; mask >>= 1) {
             if (Y[i] & mask) {
@@ -521,4 +553,43 @@ static void gf_multiply(const unsigned char *X,
             }
         }
     }
+}
+
+static void ghash(unsigned char *H, // mac
+                  unsigned char *X, // input
+                  int X_len,
+                  unsigned char *Y) // output
+{
+    //
+    //       [input]   [MAC] <--+
+    //            \     /       |
+    //             \   /        |
+    //              (+)         |
+    //               |          |output
+    //               V          |
+    //   [H]--->[gf_multiply] --+
+    //
+    unsigned char X_block[AES_BLOCK_SIZE];
+    unsigned int input_len;
+    int process_len;
+
+    memset(Y, '\0', AES_BLOCK_SIZE);
+    input_len = htonl(X_len << 3); // for final block
+
+    while (X_len) {
+        process_len = (X_len < AES_BLOCK_SIZE) ? X_len : AES_BLOCK_SIZE;
+        memset(X_block, '\0', AES_BLOCK_SIZE);
+        memcpy(X_block, X, AES_BLOCK_SIZE);
+        xor(X_block, Y, AES_BLOCK_SIZE);
+        gf_multiply(X_block, H, Y);
+
+        X += process_len;
+        X_len -= process_len;
+    }
+
+    // Hash the length of the ciphertext
+    memset(X_block, '\0', AES_BLOCK_SIZE);
+    memcpy(X_block + 12, (void *)&input_len, sizeof(unsigned int));
+    xor(X_block, Y, AES_BLOCK_SIZE);
+    gf_multiply(X_block, H, Y);
 }
