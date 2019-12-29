@@ -485,3 +485,40 @@ void aes_256_decrypt(const unsigned char *ciphertext,
     aes_decrypt(ciphertext, ciphertext_len, plaintext,
                 (const unsigned char *)iv, key, 32);
 }
+
+
+// Multiply X by Y in a GF(128) field and return the result in Z.
+static void gf_multiply(const unsigned char *X,
+                        const unsigned char *Y,
+                        unsigned char *Z)
+{
+    unsigned char V[AES_BLOCK_SIZE];
+    unsigned char R[AES_BLOCK_SIZE];
+    unsigned char mask;
+    int i, j;
+    int lsb;
+
+    memset(Z, '\0', AES_BLOCK_SIZE);
+    memset(R, '\0', AES_BLOCK_SIZE);
+    R[0] = 0xE1; // 0b11100001 == x^128 + x^7 + x^2 + x + 1
+    memcpy(V, X, AES_BLOCK_SIZE);
+    for (i = 0; i < 16; i++) {
+        for (mask = 0x80; mask; mask >>= 1) {
+            if (Y[i] & mask) {
+                xor(Z, V, AES_BLOCK_SIZE);
+            }
+
+            // multiply(<<) and subtract(^) modulo x^128 + x^7 + x^2 + x + 1
+            lsb = (V[AES_BLOCK_SIZE-1] & 0x01);
+            // multiply
+            for (j = AES_BLOCK_SIZE - 1; j; j--) {
+                V[j] = (V[j] >> 1) | ((V[j-1] & 0x01) << 7);
+            }
+            V[0] >>= 1;
+            // subtract
+            if (lsb) {
+                xor(V, R, AES_BLOCK_SIZE);
+            }
+        }
+    }
+}
