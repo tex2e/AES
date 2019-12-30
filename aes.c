@@ -593,3 +593,159 @@ static void ghash(unsigned char *H, // mac
     xor(X_block, Y, AES_BLOCK_SIZE);
     gf_multiply(X_block, H, Y);
 }
+
+// 128-bit AES-GCM
+// IV must be exactly 12 bytes and must consist of 12 bytes of random data.
+// The last 4 bytes will be overwritten.
+// output must be exactly 16 bytes longer than input.
+int aes_gcm_process(const unsigned char *input,
+                    int input_len,
+                    const unsigned char *addldata,
+                    unsigned short addldata_len,
+                    unsigned char *output,
+                    void *iv,
+                    const unsigned char *key,
+                    int decrypt)
+{
+    unsigned char nonce[AES_BLOCK_SIZE];
+    unsigned char input_block[AES_BLOCK_SIZE];
+    unsigned char zeros[AES_BLOCK_SIZE];
+    unsigned char H[AES_BLOCK_SIZE];
+    unsigned char mac_block[AES_BLOCK_SIZE];
+    unsigned int next_nonce;
+    int original_input_len, original_addl_len;
+    int process_len;
+    int block_size;
+
+    memset(zeros, '\0', AES_BLOCK_SIZE);
+    aes_block_encrypt(zeros, H, key, 16);
+    // Prepare the first nonce.
+    memcpy(nonce, iv, 12);
+    memset(nonce + 12, '\0', sizeof(unsigned int));
+
+    process_len = input_len - (decrypt ? AES_BLOCK_SIZE : 0);
+
+    // MAC init
+    memset(mac_block, '\0', sizeof(unsigned int));
+    original_input_len = htonl(input_len << 3); // for final block
+    original_addl_len  = htonl(addldata_len << 3); // for final block
+
+    // GHASH(input=addldata, mac=mac_block, H=H) -> mac_block
+    while (addldata_len) {
+        block_size = (addldata_len < AES_BLOCK_SIZE)
+                   ? addldata_len : AES_BLOCK_SIZE;
+        memset(input_block, '\0', AES_BLOCK_SIZE);
+        memcpy(input_block, addldata, block_size);
+        xor(input_block, mac_block, AES_BLOCK_SIZE);
+        gf_multiply(input_block, H, mac_block);
+
+        addldata += block_size;
+        addldata_len -= block_size;
+    }
+
+    next_nonce = htonl(1); // counter = 1
+
+    //            incr          incr
+    //   Counter0----->Counter1----->Counter2
+    //      |             |             |
+    //      V             V             V
+    //    Enc_K         Enc_K         Enc_K
+    //      |             |             |
+    //      |    Plain-->(+)   Plain-->(+)
+    //      |             |             |
+    //      |             V             V
+    //      |           Cipher        Cipher
+    //      |             |             |
+    //      |             V             V
+    //      |     +----->(+)    +----->(+)
+    //      |     |       |     |       |
+    //      |   mult_H  mult_H--+     mult_H
+    //      |     ^                     |
+    //      |     |   len(A)||len(C)-->(+)
+    //      |  AuthData                 |
+    //      |                         mult_H
+    //      |                           |
+    //      +------------------------->(+)---> AuthTag
+    //
+
+    while (process_len) {
+        // counter += 1
+        next_nonce = ntohl(next_nonce);
+        next_nonce++;
+        next_nonce = htonl(next_nonce);
+        memcpy((void *)(nonce + 12), (void *)&next_nonce, sizeof(unsigned int));
+
+        // Encrypt the nonce.
+        block_size = (process_len < AES_BLOCK_SIZE) ? process_len : AES_BLOCK_SIZE;
+        aes_block_encrypt(nonce, input_block, key, 16);
+        xor(input_block, input, block_size); // implement CTR
+        memcpy((void *)output, (void *)input_block, block_size);
+
+        if (decrypt) {
+            // When decrypting, put the input (e.g. ciphertext) back into
+            // the input block for the MAC computation below.
+            memcpy(input_block, input, block_size);
+        }
+
+        // Update the MAC
+        // input_block contains encrypted output
+        memset((input_block + AES_BLOCK_SIZE) - (AES_BLOCK_SIZE - block_size),
+               '\0', AES_BLOCK_SIZE - block_size);
+        xor(input_block, mac_block, AES_BLOCK_SIZE);
+        gf_multiply(input_block, H, mac_block);
+
+        input += block_size;
+        output += block_size;
+        process_len -= block_size;
+    }
+    memset(input_block, '\0', AES_BLOCK_SIZE);
+    memcpy(input_block + 4, (void *)&original_addl_len, sizeof(unsigned int));
+    memcpy(input_block + 12, (void *)&original_input_len, sizeof(unsigned int));
+    xor(input_block, mac_block, AES_BLOCK_SIZE);
+    gf_multiply(input_block, H, output);
+
+    // nonce(12bytes) || counter(4bytes)
+    memset(nonce + 12, '\0', sizeof(unsigned int));
+    nonce[15] = 0x01; // counter = 1
+
+    if (!decrypt) {
+        gf_multiply(input_block, H, mac_block);
+        // Encrypt the MAC block and output it.
+        aes_block_encrypt(nonce, input_block, key, 16);
+        xor(output, input_block, AES_BLOCK_SIZE);
+    }
+    else {
+        gf_multiply(input_block, H, mac_block);
+        // Decrypt the MAC block and compare it.
+        aes_block_encrypt(nonce, input_block, key, 16);
+        xor(input_block, input, AES_BLOCK_SIZE);
+        if (memcmp(mac_block, input_block, AES_BLOCK_SIZE)) { // compare
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int aes_gcm_encrypt(const unsigned char *input,
+                    int input_len,
+                    const unsigned char *addldata,
+                    const int addldata_len,
+                    unsigned char *output,
+                    void *iv,
+                    const unsigned char *key)
+{
+    return aes_gcm_process(input, input_len, addldata, addldata_len,
+                           output, iv, key, 0);
+}
+
+int aes_gcm_decrypt(const unsigned char *input,
+                    int input_len,
+                    const unsigned char *addldata,
+                    const int addldata_len,
+                    unsigned char *output,
+                    void *iv,
+                    const unsigned char *key)
+{
+    return aes_gcm_process(input, input_len, addldata, addldata_len,
+                           output, iv, key, 1);
+}
