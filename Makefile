@@ -9,3 +9,6 @@ aes.o: aes.c aes.h
 
 main: main.c aes.o hex.o
 	gcc $^ -o $@
+
+clean:
+	$(RM) *.o main
