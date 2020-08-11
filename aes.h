@@ -17,25 +17,25 @@ void aes_block_decrypt(const unsigned char *input_block,
 void aes_128_encrypt(const unsigned char *plaintext,
                      const int plaintext_len,
                      unsigned char ciphertext[],
-                     unsigned char *iv,
+                     const unsigned char *iv,
                      const unsigned char *key);
 
 void aes_128_decrypt(const unsigned char *ciphertext,
                      const int ciphertext_len,
                      unsigned char plaintext[],
-                     unsigned char *iv,
+                     const unsigned char *iv,
                      const unsigned char *key);
 
 void aes_256_encrypt(const unsigned char *plaintext,
                      const int plaintext_len,
                      unsigned char ciphertext[],
-                     unsigned char *iv,
+                     const unsigned char *iv,
                      const unsigned char *key);
 
 void aes_256_decrypt(const unsigned char *ciphertext,
                      const int ciphertext_len,
                      unsigned char plaintext[],
-                     unsigned char *iv,
+                     const unsigned char *iv,
                      const unsigned char *key);
 
 int aes_gcm_encrypt(const unsigned char *input,

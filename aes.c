@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "hex.h"
+#include <arpa/inet.h>
+// #include "hex.h"
 
 static void xor(unsigned char *target, const unsigned char *src, int len)
 {
@@ -431,12 +432,14 @@ static void aes_encrypt(const unsigned char *input,
     //     [Ciphertext]     [Ciphertext]
     //
     unsigned char input_block[AES_BLOCK_SIZE];
+    unsigned char my_iv[AES_BLOCK_SIZE];
 
+    memcpy(my_iv, iv, AES_BLOCK_SIZE);
     while (input_len >= AES_BLOCK_SIZE) {
         memcpy(input_block, input, AES_BLOCK_SIZE);
-        xor(input_block, iv, AES_BLOCK_SIZE); // implement CBC
+        xor(input_block, my_iv, AES_BLOCK_SIZE); // implement CBC
         aes_block_encrypt(input_block, output, key, key_length);
-        memcpy((void *)iv, (void *)output, AES_BLOCK_SIZE); // CBC
+        memcpy((void *)my_iv, (void *)output, AES_BLOCK_SIZE); // CBC
         input += AES_BLOCK_SIZE;
         output += AES_BLOCK_SIZE;
         input_len -= AES_BLOCK_SIZE;
@@ -463,10 +466,13 @@ static void aes_decrypt(const unsigned char *input,
     //          V                V
     //     [Plaintext]      [Plaintext]
     //
+    unsigned char my_iv[AES_BLOCK_SIZE];
+
+    memcpy(my_iv, iv, AES_BLOCK_SIZE);
     while (input_len >= AES_BLOCK_SIZE) {
         aes_block_decrypt(input, output, key, key_length);
-        xor(output, iv, AES_BLOCK_SIZE);
-        memcpy((void *)iv, (void *)input, AES_BLOCK_SIZE); // CBC
+        xor(output, my_iv, AES_BLOCK_SIZE);
+        memcpy((void *)my_iv, (void *)input, AES_BLOCK_SIZE); // CBC
         input += AES_BLOCK_SIZE;
         output += AES_BLOCK_SIZE;
         input_len -= AES_BLOCK_SIZE;
@@ -476,41 +482,37 @@ static void aes_decrypt(const unsigned char *input,
 void aes_128_encrypt(const unsigned char *plaintext,
                      const int plaintext_len,
                      unsigned char ciphertext[],
-                     void *iv,
+                     const unsigned char *iv,
                      const unsigned char *key)
 {
-    aes_encrypt(plaintext, plaintext_len, ciphertext,
-                (const unsigned char *)iv, key, 16);
+    aes_encrypt(plaintext, plaintext_len, ciphertext, iv, key, 16);
 }
 
 void aes_256_encrypt(const unsigned char *plaintext,
                      const int plaintext_len,
                      unsigned char ciphertext[],
-                     void *iv,
+                     const unsigned char *iv,
                      const unsigned char *key)
 {
-    aes_encrypt(plaintext, plaintext_len, ciphertext,
-                (const unsigned char *)iv, key, 32);
+    aes_encrypt(plaintext, plaintext_len, ciphertext, iv, key, 32);
 }
 
 void aes_128_decrypt(const unsigned char *ciphertext,
                      const int ciphertext_len,
                      unsigned char plaintext[],
-                     void *iv,
+                     const unsigned char *iv,
                      const unsigned char *key)
 {
-    aes_decrypt(ciphertext, ciphertext_len, plaintext,
-                (const unsigned char *)iv, key, 16);
+    aes_decrypt(ciphertext, ciphertext_len, plaintext, iv, key, 16);
 }
 
 void aes_256_decrypt(const unsigned char *ciphertext,
                      const int ciphertext_len,
                      unsigned char plaintext[],
-                     void *iv,
+                     const unsigned char *iv,
                      const unsigned char *key)
 {
-    aes_decrypt(ciphertext, ciphertext_len, plaintext,
-                (const unsigned char *)iv, key, 32);
+    aes_decrypt(ciphertext, ciphertext_len, plaintext, iv, key, 32);
 }
 
 
