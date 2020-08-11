@@ -3,6 +3,39 @@
 
 AES implementation in C.
 
+
+```c
+int input_len = 16;
+unsigned char input[16] = {
+    0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+    0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff
+};
+unsigned char key[32] = {
+    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+    0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+    0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+    0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f
+};
+unsigned char iv[16] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
+// encrypt
+unsigned char *ciphertext = (unsigned char *)malloc(input_len);
+aes_256_encrypt(input, input_len, ciphertext, iv, key);
+printf("ENCRYPTED: "); show_hex(ciphertext, input_len);
+
+// decrypt
+unsigned char *plaintext = (unsigned char *)malloc(input_len);
+aes_256_decrypt(ciphertext, input_len, plaintext, iv, key);
+printf("DECRYPTED: "); show_hex(plaintext, input_len);
+```
+
+### main.c
+
+Using test vectors from [NIST FIPS 197](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197.pdf).
+
 Compile:
 
 ```
@@ -15,20 +48,50 @@ Execute:
 $ ./main
 PLAINTEXT: 00112233445566778899aabbccddeeff
 KEY:       000102030405060708090a0b0c0d0e0f
+IV:        00000000000000000000000000000000
 ENCRYPTED: 69c4e0d86a7b0430d8cdb78070b4c55a
-aes128enc ... OK
+aes128_enc ... OK
+
 PLAINTEXT: 69c4e0d86a7b0430d8cdb78070b4c55a
 KEY:       000102030405060708090a0b0c0d0e0f
-ENCRYPTED: 00112233445566778899aabbccddeeff
-aes128dec ... OK
+DECRYPTED: 00112233445566778899aabbccddeeff
+aes128_dec ... OK
+
+PLAINTEXT: 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
+KEY:       000102030405060708090a0b0c0d0e0f
+IV:        00001111222233334444555566667777
+ENCRYPTED: efaf1ed725db5235ce5404b2b4c20903e468c8ea3979758b0de43283b7b92b1040731c13f21cda839ab26ba9a4041f6c
+DECRYPTED: 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
+aes128_enc_dec ... OK
+
+ENCRYPTED: 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
+KEY:       000102030405060708090a0b0c0d0e0f
+IV:        00001111222233334444555566667777
+DECRYPTED: efaf1ed725db5235ce5404b2b4c20903e468c8ea3979758b0de43283b7b92b1040731c13f21cda839ab26ba9a4041f6c
+ENCRYPTED: 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
+aes128_dec_enc ... OK
+
 PLAINTEXT: 00112233445566778899aabbccddeeff
 KEY:       000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
 ENCRYPTED: 8ea2b7ca516745bfeafc49904b496089
-aes256enc ... OK
+aes256_enc ... OK
+
 PLAINTEXT: 8ea2b7ca516745bfeafc49904b496089
 KEY:       000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
-ENCRYPTED: 00112233445566778899aabbccddeeff
-aes256dec ... OK
-```
+DECRYPTED: 00112233445566778899aabbccddeeff
+aes256_dec ... OK
 
-Using test vectors from [NIST FIPS 197](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197.pdf).
+PLAINTEXT: 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
+KEY:       000102030405060708090a0b0c0d0e0f
+IV:        00001111222233334444555566667777
+ENCRYPTED: 98388094a692812fb6723442def23a744a79a60774c93d6853e8f7bfef40b94bd94da46aeee07d43ca0d3ba3f615ca07
+DECRYPTED: 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
+aes256_enc_dec ... OK
+
+ENCRYPTED: 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
+KEY:       000102030405060708090a0b0c0d0e0f
+IV:        00001111222233334444555566667777
+DECRYPTED: 98388094a692812fb6723442def23a744a79a60774c93d6853e8f7bfef40b94bd94da46aeee07d43ca0d3ba3f615ca07
+ENCRYPTED: 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
+aes256_dec_enc ... OK
+```

@@ -7,7 +7,7 @@
 // https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197.pdf
 // Appendix C - Example Vectors
 
-int aes128enc() {
+int aes128_enc() {
     int input_len = 16;
     unsigned char input[16] = {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
@@ -27,21 +27,22 @@ int aes128enc() {
     };
     // expected => 69c4e0d86a7b0430d8cdb78070b4c55a
 
+    // encrypt
     unsigned char *ciphertext = (unsigned char *)malloc(input_len);
-    printf("PLAINTEXT: "); show_hex(input, 16);
+    printf("PLAINTEXT: "); show_hex(input, input_len);
     printf("KEY:       "); show_hex(key, 16);
+    printf("IV:        "); show_hex(iv, 16);
     aes_128_encrypt(input, input_len, ciphertext, iv, key);
     printf("ENCRYPTED: "); show_hex(ciphertext, input_len);
-    if (memcmp(ciphertext, expected, 16) == 0) {
-        // show_hex(plaintext, 16);
-        printf("aes128enc ... OK\n");
-        return 1;
+    if (memcmp(ciphertext, expected, input_len) == 0) {
+        printf("aes128_enc ... OK\n\n");
+        return 0;
     }
-    printf("aes128enc ... NG\n");
+    printf("aes128_enc ... NG\n\n");
     return 0;
 }
 
-int aes128dec() {
+int aes128_dec() {
     int input_len = 16;
     unsigned char input[16] = {
         0x69, 0xc4, 0xe0, 0xd8, 0x6a, 0x7b, 0x04, 0x30,
@@ -61,20 +62,97 @@ int aes128dec() {
     };
 
     unsigned char *plaintext = (unsigned char *)malloc(input_len);
-    printf("PLAINTEXT: "); show_hex(input, 16);
+    printf("PLAINTEXT: "); show_hex(input, input_len);
     printf("KEY:       "); show_hex(key, 16);
     aes_128_decrypt(input, input_len, plaintext, iv, key);
-    printf("ENCRYPTED: "); show_hex(plaintext, input_len);
-    if (memcmp(plaintext, expected, 16) == 0) {
-        // show_hex(plaintext, 16);
-        printf("aes128dec ... OK\n");
+    printf("DECRYPTED: "); show_hex(plaintext, input_len);
+    if (memcmp(plaintext, expected, input_len) == 0) {
+        printf("aes128_dec ... OK\n\n");
         return 1;
     }
-    printf("aes128dec ... NG\n");
+    printf("aes128_dec ... NG\n\n");
     return 0;
 }
 
-int aes256enc() {
+int aes128_enc_dec() {
+    int input_len = 16 * 3;
+    unsigned char input[16 * 3] = {
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff
+    };
+    unsigned char key[32] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
+    };
+    unsigned char iv[16] = {
+        0x00, 0x00, 0x11, 0x11, 0x22, 0x22, 0x33, 0x33,
+        0x44, 0x44, 0x55, 0x55, 0x66, 0x66, 0x77, 0x77
+    };
+
+    // encrypt
+    unsigned char *ciphertext = (unsigned char *)malloc(input_len);
+    printf("PLAINTEXT: "); show_hex(input, input_len);
+    printf("KEY:       "); show_hex(key, 16);
+    printf("IV:        "); show_hex(iv, 16);
+    aes_128_encrypt(input, input_len, ciphertext, iv, key);
+    printf("ENCRYPTED: "); show_hex(ciphertext, input_len);
+
+    // decrypt
+    unsigned char *plaintext = (unsigned char *)malloc(input_len);
+    aes_128_decrypt(ciphertext, input_len, plaintext, iv, key);
+    printf("DECRYPTED: "); show_hex(plaintext, input_len);
+    if (memcmp(input, plaintext, input_len) == 0) {
+        printf("aes128_enc_dec ... OK\n\n");
+        return 1;
+    }
+    printf("aes128_enc_dec ... NG\n\n");
+    return 0;
+}
+
+int aes128_dec_enc() {
+    int input_len = 16 * 3;
+    unsigned char input[16 * 3] = {
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff
+    };
+    unsigned char key[16] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
+    };
+    unsigned char iv[16] = {
+        0x00, 0x00, 0x11, 0x11, 0x22, 0x22, 0x33, 0x33,
+        0x44, 0x44, 0x55, 0x55, 0x66, 0x66, 0x77, 0x77
+    };
+
+    // decrypt
+    unsigned char *decrypted = (unsigned char *)malloc(input_len);
+    printf("ENCRYPTED: "); show_hex(input, input_len);
+    printf("KEY:       "); show_hex(key, 16);
+    printf("IV:        "); show_hex(iv, 16);
+    aes_128_encrypt(input, input_len, decrypted, iv, key);
+    printf("DECRYPTED: "); show_hex(decrypted, input_len);
+
+    // encrypt
+    unsigned char *encrypted = (unsigned char *)malloc(input_len);
+    aes_128_decrypt(decrypted, input_len, encrypted, iv, key);
+    printf("ENCRYPTED: "); show_hex(encrypted, input_len);
+    if (memcmp(input, encrypted, input_len) == 0) {
+        printf("aes128_dec_enc ... OK\n\n");
+        return 1;
+    }
+    printf("aes128_dec_enc ... NG\n\n");
+    return 0;
+}
+
+int aes256_enc() {
     int input_len = 16;
     unsigned char input[16] = {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
@@ -97,20 +175,19 @@ int aes256enc() {
     // expected => 8ea2b7ca516745bfeafc49904b496089
 
     unsigned char *ciphertext = (unsigned char *)malloc(input_len);
-    printf("PLAINTEXT: "); show_hex(input, 16);
+    printf("PLAINTEXT: "); show_hex(input, input_len);
     printf("KEY:       "); show_hex(key, 32);
     aes_256_encrypt(input, input_len, ciphertext, iv, key);
     printf("ENCRYPTED: "); show_hex(ciphertext, input_len);
-    if (memcmp(ciphertext, expected, 16) == 0) {
-        // show_hex(plaintext, 16);
-        printf("aes256enc ... OK\n");
+    if (memcmp(ciphertext, expected, input_len) == 0) {
+        printf("aes256_enc ... OK\n\n");
         return 1;
     }
-    printf("aes256enc ... NG\n");
+    printf("aes256_enc ... NG\n\n");
     return 0;
 }
 
-int aes256dec() {
+int aes256_dec() {
     int input_len = 16;
     unsigned char input[16] = {
         0x8e, 0xa2, 0xb7, 0xca, 0x51, 0x67, 0x45, 0xbf,
@@ -132,23 +209,108 @@ int aes256dec() {
     };
 
     unsigned char *plaintext = (unsigned char *)malloc(input_len);
-    printf("PLAINTEXT: "); show_hex(input, 16);
+    printf("PLAINTEXT: "); show_hex(input, input_len);
     printf("KEY:       "); show_hex(key, 32);
     aes_256_decrypt(input, input_len, plaintext, iv, key);
-    printf("ENCRYPTED: "); show_hex(plaintext, input_len);
-    if (memcmp(plaintext, expected, 16) == 0) {
-        // show_hex(plaintext, 16);
-        printf("aes256dec ... OK\n");
+    printf("DECRYPTED: "); show_hex(plaintext, input_len);
+    if (memcmp(plaintext, expected, input_len) == 0) {
+        printf("aes256_dec ... OK\n\n");
         return 1;
     }
-    printf("aes256dec ... NG\n");
+    printf("aes256_dec ... NG\n\n");
+    return 0;
+}
+
+int aes256_enc_dec() {
+    int input_len = 16 * 3;
+    unsigned char input[16 * 3] = {
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff
+    };
+    unsigned char key[32] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+        0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+        0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f
+    };
+    unsigned char iv[16] = {
+        0x00, 0x00, 0x11, 0x11, 0x22, 0x22, 0x33, 0x33,
+        0x44, 0x44, 0x55, 0x55, 0x66, 0x66, 0x77, 0x77
+    };
+
+    // encrypt
+    unsigned char *ciphertext = (unsigned char *)malloc(input_len);
+    printf("PLAINTEXT: "); show_hex(input, input_len);
+    printf("KEY:       "); show_hex(key, 16);
+    printf("IV:        "); show_hex(iv, 16);
+    aes_256_encrypt(input, input_len, ciphertext, iv, key);
+    printf("ENCRYPTED: "); show_hex(ciphertext, input_len);
+
+    // decrypt
+    unsigned char *plaintext = (unsigned char *)malloc(input_len);
+    aes_256_decrypt(ciphertext, input_len, plaintext, iv, key);
+    printf("DECRYPTED: "); show_hex(plaintext, input_len);
+    if (memcmp(input, plaintext, input_len) == 0) {
+        printf("aes256_enc_dec ... OK\n\n");
+        return 1;
+    }
+    printf("aes256_enc_dec ... NG\n\n");
+    return 0;
+}
+
+int aes256_dec_enc() {
+    int input_len = 16 * 3;
+    unsigned char input[16 * 3] = {
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff
+    };
+    unsigned char key[32] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+        0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+        0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f
+    };
+    unsigned char iv[16] = {
+        0x00, 0x00, 0x11, 0x11, 0x22, 0x22, 0x33, 0x33,
+        0x44, 0x44, 0x55, 0x55, 0x66, 0x66, 0x77, 0x77
+    };
+
+    // decrypt
+    unsigned char *decrypted = (unsigned char *)malloc(input_len);
+    printf("ENCRYPTED: "); show_hex(input, input_len);
+    printf("KEY:       "); show_hex(key, 16);
+    printf("IV:        "); show_hex(iv, 16);
+    aes_256_encrypt(input, input_len, decrypted, iv, key);
+    printf("DECRYPTED: "); show_hex(decrypted, input_len);
+
+    // encrypt
+    unsigned char *encrypted = (unsigned char *)malloc(input_len);
+    aes_256_decrypt(decrypted, input_len, encrypted, iv, key);
+    printf("ENCRYPTED: "); show_hex(encrypted, input_len);
+    if (memcmp(input, encrypted, input_len) == 0) {
+        printf("aes256_dec_enc ... OK\n\n");
+        return 1;
+    }
+    printf("aes256_dec_enc ... NG\n\n");
     return 0;
 }
 
 int main(int argc, char **argv) {
-    aes128enc();
-    aes128dec();
-    aes256enc();
-    aes256dec();
+    aes128_enc();
+    aes128_dec();
+    aes128_enc_dec();
+    aes128_dec_enc();
+    aes256_enc();
+    aes256_dec();
+    aes256_enc_dec();
+    aes256_dec_enc();
     return 0;
 }
